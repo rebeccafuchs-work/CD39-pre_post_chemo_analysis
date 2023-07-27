@@ -1,0 +1,182 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+#DESeq2-colorectal
+
+
+```{r}
+seqdata <- read.delim("/home/rfuchs/GSE196263_GPL18573_raw.csv", skip=2)
+seqdata
+```
+
+
+
+```{r}
+seqdatat=t(seqdata)
+seqdatat=data.frame(seqdatat)
+seqdatat
+colnames(seqdatat)=seqdatat[1,]
+seqdatat=seqdatat[-1,]
+coldata=seqdatat[9:38,c("characteristics_ch1_3_imatinib","characteristics_ch1_1_subject_id")]
+coldata
+dim(coldata)
+expressiondatapre=seqdatat[9:38,52:62599]
+expressiondatapre
+
+names=rownames(expressiondatapre)
+expressiondatapre <- apply(expressiondatapre, 2, function(x) as.numeric(x))
+expressiondatapre <- as.data.frame(expressiondatapre)
+rownames(expressiondatapre)=names
+expressiondatapre
+cts=t(expressiondatapre)
+cts
+dim(cts)
+```
+
+
+
+```{r}
+
+dds <- DESeqDataSetFromMatrix(countData = cts,
+                              colData = coldata,
+                              design = ~ characteristics_ch1_3_imatinib)
+dds
+
+keep <- rowSums(counts(dds)) >= 10
+dds <- dds[keep,]
+
+
+dds$characteristics_ch1_2_neoadjuvant_chemotherapy <- factor(dds$characteristics_ch1_3_imatinib, levels = c("Pre-imatinib","Post-imatinib"))
+
+
+dds <- DESeq(dds)
+plotMA(dds)
+res <- results(dds)
+res
+res[c("ENTPD1","ENPP1", "ALPL", "P2RX5", "P2RY11", "P2RY2", "P2RX4", "NT5E"),]
+```
+
+```{r}
+vsd <- vst(dds, blind=FALSE)
+rld <- rlog(dds, blind=FALSE)
+head(assay(vsd), 3)
+ntd <- normTransform(dds)
+ntd
+
+
+meanSdPlot(assay(ntd))
+meanSdPlot(assay(vsd))
+meanSdPlot(assay(rld))
+
+
+
+deseq2VST <- assay(vsd)
+deseq2VST <- as.data.frame(deseq2VST)
+head(deseq2VST)
+forheatmap=deseq2VST[c("ENTPD1","ENPP1", "ALPL", "P2RX5", "P2RY11", "P2RY2", "P2RX4", "NT5E"),]
+forheatmap
+
+names=rownames(forheatmap)
+forheatmap <- apply(forheatmap, 2, function(x) as.numeric(x))
+rownames(forheatmap)=names
+forheatmap=as.matrix(forheatmap)
+forheatmap
+heatmap(forheatmap)
+
+```
+
+
+```{r}
+
+hm <- Heatmap(scale_hm(forheatmap), 
+              use_raster = TRUE,
+                name = 'Z-score',
+              column_title_gp = gpar(fontsize = 14),
+              column_split = coldata$characteristics_ch1_3_imatinib,
+               column_title_rot = 0,
+              show_column_names = FALSE, 
+              #row_split = GOIS_df$target,
+              
+             # right_annotation = ra,
+              clustering_method_columns = 'ward.D2', 
+              clustering_method_rows = 'ward.D2',
+              heatmap_legend_param = list(direction = 'horizontal'))
+
+draw(hm,heatmap_legend_side = "bottom", annotation_legend_side = "bottom")
+```
+
+
+
+
+
+```{r}
+
+
+forheatmapdf=data.frame(t(forheatmap))
+(forheatmapdf)
+coldata
+forboxplots=cbind(coldata,forheatmapdf)
+forboxplots
+
+
+forboxplots$characteristics_ch1_3_imatinib <- factor(forboxplots$characteristics_ch1_3_imatinib, c("Pre-imatinib","Post-imatinib"))
+
+
+```
+
+
+
+
+
+
+```{r}
+
+  ggplot(forboxplots, aes(x=characteristics_ch1_3_imatinib, y=ALPL, fill=characteristics_ch1_3_imatinib)) +
+   geom_boxplot()+
+  
+# geom_point() is used to make points at data values
+ scale_fill_manual(values=c("gray87", "grey")) +
+  geom_jitter(
+      position = position_jitter(width = 0.3),
+      size = 3.0,
+  
+      aes(colour = characteristics_ch1_1_subject_id)) +
+    theme(axis.title = element_text(size = 17))+
+theme(axis.text = element_text(size = 12)) +              # Axis text size
+  
+
+ guides(fill=guide_legend(title="Biopsy Time: Pre/Post Imatinib"))+
+    guides(col=guide_legend("Patient ID"))+
+  #scale_fill_discrete(name = "Patient ID")
+    xlab("")
+```
+  guides(col=guide_legend("Biopsy Time: Pre/Post Imatinib"),
+         size=guide_legend("Patient ID"))
+
+
+
+```{r}
+
+  ggplot(forboxplots, aes(x=characteristics_ch1_3_imatinib, y=ALPL, fill=characteristics_ch1_3_imatinib)) +
+   geom_boxplot()+
+  facet_wrap(facets = vars(characteristics_ch1_1_subject_id))+
+# geom_point() is used to make points at data values
+ scale_fill_manual(values=c("gray87", "gray53")) +
+  geom_jitter(
+      position = position_jitter(width = 0.3),
+      size = 2.0,
+  
+      aes(colour = characteristics_ch1_1_subject_id)) +
+    theme(axis.title = element_text(size = 17))+
+theme(axis.text = element_text(size = 8)) +              # Axis text size
+  
+
+ guides(fill=guide_legend(title="Biopsy Time: Pre/Post Imatinib"))+
+    guides(col=guide_legend("Patient ID"))+
+  #scale_fill_discrete(name = "Patient ID")
+    xlab("")
+```
+
+
+
